@@ -20,32 +20,41 @@ Scan the project root for these files and folders:
 | `.vscode/settings.json`                  | Check for `github.copilot.*` keys |
 | `.vscode/mcp.json`                       | MCP servers for VS Code           |
 
+> A `.github/` folder alone does **not** mean Copilot is configured — it is also used for
+> GitHub Actions (`.github/workflows/`), issue templates, etc. Count Copilot as configured
+> at project level only if one of the Copilot-specific paths above exists.
+
 ### Claude Code
 
 | Path                          | What it indicates            |
 | ----------------------------- | ---------------------------- |
 | `.claude/settings.json`       | Claude Code project settings |
 | `.claude/settings.local.json` | Claude Code local settings   |
+| `.claude/agents/*.md`         | Claude subagents             |
 | `.claude/commands/*.md`       | Claude slash commands        |
 | `.claude/skills/*/SKILL.md`   | Claude skills installed      |
 | `CLAUDE.md`                   | Claude context file (root)   |
 | `.claude/CLAUDE.md`           | Claude context file (hidden) |
+| `.mcp.json`                   | Project MCP servers          |
 
 ### Codex (OpenAI)
 
-| Path                       | What it indicates                   |
-| -------------------------- | ----------------------------------- |
-| `.codex/`                  | Codex configuration folder          |
-| `.codex/instructions.md`   | Codex custom instructions           |
-| `.codex/skills/*/SKILL.md` | Codex skills installed              |
-| `AGENTS.md`                | Shared context (also used by Codex) |
+| Path                        | What it indicates                       |
+| --------------------------- | --------------------------------------- |
+| `.codex/`                   | Codex configuration folder              |
+| `.codex/config.toml`        | Codex project settings                  |
+| `.codex/agents/*.toml`      | Codex custom agents                     |
+| `.agents/skills/*/SKILL.md` | Skills for Codex (also Gemini/OpenCode) |
+| `AGENTS.md`                 | Shared context (also used by Codex)     |
 
 ### Gemini CLI
 
 | Path                        | What it indicates        |
 | --------------------------- | ------------------------ |
 | `.gemini/`                  | Gemini CLI configuration |
-| `.gemini/settings.json`     | Gemini settings          |
+| `.gemini/settings.json`     | Gemini settings (check `experimental.enableAgents`) |
+| `.gemini/agents/*.md`       | Gemini subagents         |
+| `.gemini/commands/*.toml`   | Gemini custom commands   |
 | `.gemini/skills/*/SKILL.md` | Gemini skills installed  |
 | `GEMINI.md`                 | Gemini context file      |
 
@@ -55,6 +64,7 @@ Scan the project root for these files and folders:
 | ----------------------------- | ------------------------- |
 | `.opencode/`                  | OpenCode configuration    |
 | `.opencode/agents/*.md`       | OpenCode agents           |
+| `.opencode/commands/*.md`     | OpenCode commands         |
 | `.opencode/skills/*/SKILL.md` | OpenCode skills installed |
 | `opencode.json`               | OpenCode project config   |
 
@@ -115,16 +125,24 @@ If the command returns a version string (exit code 0), the tool is installed.
 
 ### VS Code Extensions
 
-Run `code --list-extensions` and filter for AI-related extensions:
+Run `code --list-extensions` and filter for AI-related extensions. Compare IDs
+**case-insensitively** — the command may print them in lowercase (`anthropic.claude-code`).
+
+An extension counts as the tool being installed, even when its CLI is not on the `PATH`
+(e.g. the Claude Code extension ships its own binary). Use it to pre-select targets.
 
 | Extension ID                          | Tool                |
 | ------------------------------------- | ------------------- |
+| `anthropic.claude-code`               | Claude Code         |
+| `openai.chatgpt`                      | Codex (OpenAI)      |
+| `sst-dev.opencode`                    | OpenCode            |
+| `Google.geminicodeassist`             | Gemini Code Assist  |
 | `GitHub.copilot`                      | GitHub Copilot      |
 | `GitHub.copilot-chat`                 | GitHub Copilot Chat |
 | `Continue.continue`                   | Continue            |
 | `saoudrizwan.claude-dev`              | Cline               |
 | `rooveterinaryinc.roo-cline`          | Roo                 |
-| `GoogleCloudTools.gemini-code-assist` | Gemini Code Assist  |
+| `GoogleCloudTools.gemini-code-assist` | Gemini Code Assist (legacy ID) |
 | `sourcegraph.cody-ai`                 | Sourcegraph Cody    |
 | `Cursor.*`                            | Cursor-related      |
 | `TabNine.tabnine-vscode`              | Tabnine             |
@@ -140,14 +158,16 @@ Run `code --list-extensions` and filter for AI-related extensions:
 | Windows   | Copilot (agents skills) | `%USERPROFILE%\.agents\skills\`   |
 | Windows   | OpenCode                | `%USERPROFILE%\.config\opencode\` |
 | Windows   | Continue                | `%USERPROFILE%\.continue\`        |
-| Windows   | Gemini                  | `%APPDATA%\gemini\`               |
+| Windows   | Gemini                  | `%USERPROFILE%\.gemini\`          |
+| Windows   | Codex                   | `%USERPROFILE%\.codex\`           |
 | Linux/Mac | Claude Code             | `~/.claude/`                      |
 | Linux/Mac | Copilot (VS Code)       | `~/.config/Code/User/prompts/`    |
 | Linux/Mac | Copilot (skills)        | `~/.copilot/skills/`              |
 | Linux/Mac | Copilot (agents skills) | `~/.agents/skills/`               |
 | Linux/Mac | OpenCode                | `~/.config/opencode/`             |
 | Linux/Mac | Continue                | `~/.continue/`                    |
-| Linux/Mac | Gemini                  | `~/.config/gemini/`               |
+| Linux/Mac | Gemini                  | `~/.gemini/`                      |
+| Linux/Mac | Codex                   | `~/.codex/`                       |
 
 ---
 

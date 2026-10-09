@@ -131,6 +131,36 @@ When multiple stacks are detected, recommend skills from ALL matching categories
 3. **Universal category** (e.g., `shared/`, `testing/`) → ★ always recommend
 4. **Unrelated category** (e.g., `dotnet/` for a React project) → listed but not recommended
 
+### Description-Based Matching
+
+Category folders are optional. Many central folders are flat (`skills/`, `agents/`) or
+mix stacks in one folder. **Always** match each artifact by its own metadata as well, and
+combine it with the category match:
+
+1. Read the frontmatter `name` and `description` of every `SKILL.md`, `*.agent.md`,
+   agent `.md`/`.toml`, `*.prompt.md` and `*.instructions.md` (frontmatter only — do not
+   load the full body).
+2. Build the project's keyword set from Step 2: framework and language (`react`,
+   `typescript`, `vite`, `.net`, `blazor`…), key dependencies (`tailwind`, `shadcn`,
+   `react-hook-form`, `zod`, `tanstack`, `entity framework`…), and internal packages
+   (e.g. `@ba-react/bcp-data`). Scoped packages also match on the bare package name
+   (`bcp-data`).
+3. Score each artifact:
+
+   | Match in `name` / `description`                                                        | Priority                |
+   | -------------------------------------------------------------------------------------- | ----------------------- |
+   | A dependency or internal package used by the project (`bcp-data`, `tailwind v4`, `shadcn`) | ★★★                 |
+   | The project's framework or language (`React`, `TypeScript`, `.NET`)                     | ★★                      |
+   | Stack-neutral workflow (`code review`, `git`, `commit`, `testing`)                      | ★                       |
+   | Only another stack (`.NET`, `MAUI`, `Blazor` for a React project)                       | not recommended         |
+   | Meta/tooling (`create skill`, `create agent`, `find skills`)                            | listed, not recommended |
+
+4. If an artifact matches both a category folder and its description, keep the
+   **higher** priority. If they contradict (a `react/` folder whose description is about
+   .NET), trust the description and mention it.
+5. Show the matched keyword next to each recommendation so the user sees why:
+   `★★★ bcp-data-patterns — matches @ba-react/bcp-data in package.json`.
+
 ### Presentation Order
 
 1. Show ★★★ items first with strong recommendation

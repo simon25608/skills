@@ -36,11 +36,35 @@ Use this skill when the user wants to:
 
 Execute these steps sequentially. Show progress to the user after each step.
 
+### Interactive Question Tool — Limits
+
+Every step that asks the user something uses the agent's interactive question tool.
+These tools differ, so adapt to the one available:
+
+- **No free-text field** (e.g. Claude Code's `AskUserQuestion` only offers fixed options
+  plus an "Other" box): do NOT ask for a path or other free text through it with
+  placeholder options like "Type the path". Ask for it **in a chat message** and wait
+  for the reply. Use the tool only for choices.
+- **Option limits** (e.g. `AskUserQuestion`: 2–4 options per question, up to 4
+  questions per call): when a list is longer, first show the **full list in chat**
+  (grouped and numbered), then split the options into several questions of the same
+  type (`Skills 1/3`, `Skills 2/3`…) ordered by priority. Tell the user they can add
+  items not shown by number or name through "Other".
+- **No pre-selection support**: state in the question text which options are
+  recommended or detected, instead of pre-selecting them.
+- **No interactive tool at all**: ask in chat with a numbered list and accept answers
+  like `1, 3, 5` or `all recommended`.
+
 ### Step 1 — Ask for Central Skills Folder
 
 > **STOP. Do NOT proceed to Step 2 until the user provides this path.**
 
 Use the agent's **interactive question tool** (e.g. `vscode_askQuestions`, `ask_followup_question`, or equivalent) to present a focused input prompt — not a chat message. The user should be able to type the path directly into the question and continue without sending a separate reply.
+
+If the tool has no free-text input (see *Interactive Question Tool — Limits*), ask for the
+path in a chat message instead and stop until the user replies. If an answer comes back
+without a path (e.g. an option was picked but nothing was typed), ask again — never
+continue without a real path.
 
 **Question to present:**
 
@@ -106,11 +130,11 @@ Show findings progressively as they are discovered.
 
 **At project level**, look for:
 
-- `.github/` → GitHub Copilot (check for `copilot-instructions.md`, `agents/`, `skills/`, `prompts/`, `instructions/`)
-- `.claude/` → Claude Code (check for `settings.json`, `commands/`, `skills/`)
-- `.codex/` → Codex (check for `instructions.md`)
-- `.gemini/` → Gemini CLI
-- `.opencode/` → OpenCode
+- `.github/` → GitHub Copilot **only if** it has `copilot-instructions.md`, `agents/`, `skills/`, `prompts/` or `instructions/` (a `.github/` with only `workflows/` is not Copilot)
+- `.claude/` → Claude Code (check for `settings.json`, `agents/`, `commands/`, `skills/`)
+- `.codex/` → Codex (check for `config.toml`, `agents/`); `.agents/skills/` → Codex/Gemini/OpenCode skills
+- `.gemini/` → Gemini CLI (check for `settings.json`, `agents/`, `commands/`, `skills/`)
+- `.opencode/` → OpenCode (check for `agents/`, `commands/`, `skills/`)
 - `.continue/` → Continue
 - `.clinerules` / `.roo/` → Cline / Roo
 - `.aider*` → Aider
@@ -121,7 +145,10 @@ Show findings progressively as they are discovered.
 **At system level**, verify:
 
 - CLI tools: `claude`, `codex`, `gemini`, `opencode`, `aider`, `continue`
-- VS Code extensions: run `code --list-extensions` and filter AI-related
+- VS Code extensions: run `code --list-extensions` and filter AI-related, comparing IDs
+  case-insensitively (`anthropic.claude-code`, `openai.chatgpt`, `sst-dev.opencode`,
+  `github.copilot-chat`, …). An extension counts as the tool being installed even if its
+  CLI is not on the `PATH`
 - Global config folders (OS-dependent)
 
 **Output format:**
@@ -177,13 +204,23 @@ Recursively scan the central folder. Classify each artifact found by type.
 
 **Detection rules:**
 
-| File found                | Classification |
-| ------------------------- | -------------- |
-| `SKILL.md`                | Skill          |
-| `*.agent.md`              | Agent          |
-| `*.prompt.md`             | Prompt         |
-| `*.instructions.md`       | Instruction    |
-| `AGENTS.md` / `CLAUDE.md` | Context file   |
+| File found                                                        | Classification |
+| ----------------------------------------------------------------- | -------------- |
+| `SKILL.md`                                                        | Skill          |
+| `*.agent.md`                                                      | Agent (Copilot format) |
+| `*.md` inside an `agents/` folder with `name` + `description` frontmatter | Agent (Claude, Gemini or OpenCode format) |
+| `*.toml` inside an `agents/` folder with `developer_instructions` | Agent (Codex format) |
+| `*.prompt.md`                                                     | Prompt         |
+| `*.instructions.md`                                               | Instruction    |
+| `AGENTS.md` / `CLAUDE.md`                                         | Context file   |
+
+Files inside a skill folder (e.g. a skill's own `AGENTS.md` or `agents/`) belong to that
+skill — do not list them as separate artifacts.
+
+For every skill and agent, also read the frontmatter `name` and `description` (not the
+body). They are needed for the recommendations in Step 5, and for agents, to detect
+their source format (see [references/agent-formats.md](references/agent-formats.md)).
+Show the format next to each agent: `code-reviewer.agent.md [agent · Copilot format]`.
 
 **Build a categorized tree and show it:**
 
@@ -214,8 +251,17 @@ Central folder: C:\AI-Skills\
 
 ### Step 5 — Recommend Skills and Agents by Stack
 
-Cross-reference the detected stack (Step 2) with available categories (Step 4).
-Recommend **both skills and agents** (and any prompts/instructions) that match the stack.
+Cross-reference the detected stack (Step 2) with available categories (Step 4) **and
+with each artifact's `description`**. Recommend **both skills and agents** (and any
+prompts/instructions) that match the stack.
+
+Category folders (`react/`, `dotnet/`…) are optional: when the central folder is flat
+(`skills/`, `agents/`) or a category says nothing about the stack, the description is
+the only signal. Always apply the description-based matching in
+[references/project-detection.md](references/project-detection.md#description-based-matching):
+match the `name` and `description` against the project's framework, language,
+dependencies and internal packages, and show the matched keyword next to each
+recommendation (`★ bcp-data-patterns — matches @ba-react/bcp-data`).
 
 > **Recommending is NOT installing.** This step only *displays* suggestions. It must
 > never install anything, and the ★ marks are purely informational. Installation happens
@@ -265,9 +311,9 @@ Also available (other categories):
   · <non-matching-category>/<name>       [skill]
 ```
 
-Agents are recommended using the same category matching as skills: an agent inside a
-recommended category is marked with ★. Agents in non-matching categories are still
-listed under "Also available".
+Agents are recommended using the same category and description matching as skills: an
+agent inside a recommended category, or whose description matches the stack, is marked
+with ★. Other agents are still listed under "Also available".
 
 For full recommendation rules, see [references/project-detection.md](references/project-detection.md).
 
@@ -377,9 +423,13 @@ options:
 For each selected item, link it into the project for each target agent. Handle each
 artifact type according to its shape:
 
-- **Skills** are folders (contain `SKILL.md`) → junction/symlink the folder
-- **Agents / prompts / instructions** are single files (`*.agent.md`, `*.prompt.md`,
-  `*.instructions.md`) → copy the file, or symlink it if the user wants it kept in sync
+- **Skills** are folders (contain `SKILL.md`) → junction/symlink the folder. The
+  `SKILL.md` format is the same for every tool, so skills are never converted
+- **Agents** are single files whose format differs per tool → install as the target's
+  **agent** (subagent) type, converting the frontmatter when the source format differs
+  from the target (see 7.3)
+- **Prompts / instructions** are single files → copy the file, or symlink it if the user
+  wants it kept in sync (convert for Gemini, which uses TOML commands)
 
 #### 7.1 — Detect OS and Choose Link Method
 
@@ -389,6 +439,12 @@ artifact type according to its shape:
 | Linux   | Symlink        | `ln -s "<source>" "<dest>"`            | Copy (`cp -r`)                   |
 | macOS   | Symlink        | `ln -s "<source>" "<dest>"`            | Copy (`cp -r`)                   |
 
+Junctions only work for folders. A **file** symlink on Windows needs Developer Mode, an
+elevated prompt or the "Create symbolic links" right. If it fails, do **not** fall back
+silently to a hardlink or copy: explain why it failed, how to enable it, and the
+hardlink caveats, then ask the user (see
+[references/installation-paths.md](references/installation-paths.md#windows-symlink-privilege--warn-before-falling-back)).
+
 #### 7.2 — Determine Destination Paths
 
 For each selected item, create links in the appropriate location per agent.
@@ -396,13 +452,22 @@ See [references/installation-paths.md](references/installation-paths.md) for the
 
 **Quick reference:**
 
-| Agent    | Skills                     | Agents              | Prompts             | Instructions            |
-| -------- | -------------------------- | ------------------- | ------------------- | ----------------------- |
-| Copilot  | `.github/skills/<name>/`   | `.github/agents/`   | `.github/prompts/`  | `.github/instructions/` |
-| Claude   | `.claude/skills/<name>/`   | `.claude/commands/` | `.claude/commands/` | `.claude/`              |
-| Codex    | `.codex/skills/<name>/`    | `.codex/`           | `.codex/`           | `.codex/`               |
-| Gemini   | `.gemini/skills/<name>/`   | `.gemini/`          | `.gemini/`          | `.gemini/`              |
-| OpenCode | `.opencode/skills/<name>/` | `.opencode/agents/` | `.opencode/`        | `.opencode/`            |
+| Agent    | Skills                       | Agents                        | Prompts                         | Instructions            |
+| -------- | ---------------------------- | ----------------------------- | ------------------------------- | ----------------------- |
+| Copilot  | `.github/skills/<name>/`     | `.github/agents/<name>.agent.md` | `.github/prompts/`           | `.github/instructions/` |
+| Claude   | `.claude/skills/<name>/`     | `.claude/agents/<name>.md`    | `.claude/commands/<name>.md`    | `CLAUDE.md` (append)    |
+| Codex    | `.agents/skills/<name>/`     | `.codex/agents/<name>.toml`   | — (offer as skill)              | `AGENTS.md` (append)    |
+| Gemini   | `.gemini/skills/<name>/`     | `.gemini/agents/<name>.md`    | `.gemini/commands/<name>.toml`  | `GEMINI.md` (append)    |
+| OpenCode | `.opencode/skills/<name>/`   | `.opencode/agents/<name>.md`  | `.opencode/commands/<name>.md`  | `AGENTS.md` (append)    |
+
+> **Agents go to the target's agents folder — never to `commands/`.** In Claude Code a
+> command (`.claude/commands/`) is a prompt the user runs with `/name`; an agent
+> (`.claude/agents/`) is a subagent Claude delegates to.
+
+Several tools share skill folders (OpenCode reads `.claude/skills/` and `.agents/skills/`;
+Codex and Gemini read `.agents/skills/`). Do not link the same skill twice for a target
+that already sees it — see
+[references/installation-paths.md](references/installation-paths.md#shared-skill-folders-avoid-duplicates).
 
 #### 7.3 — Execute Installation
 
@@ -410,16 +475,31 @@ For each item × each target agent:
 
 1. **Resolve the destination** based on artifact type and target agent, using the
    path matrix in [references/installation-paths.md](references/installation-paths.md).
-   Note that agents map to a different folder per agent (e.g. `.github/agents/`,
-   `.claude/commands/`, `.opencode/agents/`).
-2. **Check if destination already exists**
+   Agents map to a different folder and format per agent (`.github/agents/*.agent.md`,
+   `.claude/agents/*.md`, `.codex/agents/*.toml`, `.gemini/agents/*.md`,
+   `.opencode/agents/*.md`).
+2. **For agents, compare formats** using
+   [references/agent-formats.md](references/agent-formats.md):
+   - Source format = target format → link or copy the file as-is.
+   - Source format ≠ target format → build a **converted copy**: translate `name`,
+     `tools` and `model`, drop keys the target does not support, keep the body, and add
+     the `# Generated by ai-skills-management from <source>` provenance comment.
+   - Show the conversion report (mapped and dropped tools, model change) and ask for
+     confirmation when something was dropped or mapped with a fallback.
+   - Converted copies do not stay in sync. If the user chose "keep in sync" for an agent
+     that needs conversion, explain this and offer a converted copy instead.
+3. **Check if destination already exists**
    - If junction/symlink → skip (already linked) or ask to re-link
+   - If it is a converted copy with the provenance comment for the same source → ask to
+     regenerate or skip
    - If regular folder/file → ask user: overwrite, skip, or backup
-3. **Create parent directories** if they don't exist
-4. **Create link/copy**
+4. **Create parent directories** if they don't exist
+5. **Create link/copy**
    - Folders (skills): junction (Windows) or symlink (Unix)
-   - Single files (agents/prompts/instructions): copy, or symlink to keep in sync
-5. **Verify** the link/copy works (check target is readable)
+   - Agents: converted copy, or link/copy when the format already matches
+   - Prompts/instructions: copy, or symlink to keep in sync
+6. **Verify** the link/copy works (the target is readable and, for agents, the
+   frontmatter has the fields the target requires)
 
 **Output format:**
 
@@ -436,17 +516,19 @@ Installing skills and agents...
       ✓ .claude/skills/code-review → C:\AI-Skills\shared\code-review [junction]
 
   Agents:
-    react/code-reviewer.agent.md
+    react/code-reviewer.agent.md  (Copilot format)
       ✓ .github/agents/code-reviewer.agent.md → C:\AI-Skills\react\code-reviewer.agent.md [copy]
-      ✓ .claude/commands/code-reviewer.md → C:\AI-Skills\react\code-reviewer.agent.md [copy]
+      ✓ .claude/agents/code-reviewer.md ← converted from Copilot format [converted copy]
+          model: Claude Sonnet 4.6 (copilot) → sonnet
+          tools: 17 → Read, Grep, Glob, LSP, Bash, Agent  (dropped: read/terminalSelection, read/terminalLastCommand)
 
 Installed: 2 skills + 1 agent for 2 agents (6 artifacts created)
 ```
 
-> **Note on agent file naming:** Copilot and OpenCode keep the `.agent.md` /
-> `.md` extension in `agents/`; Claude Code places agents as slash commands under
-> `.claude/commands/<name>.md`. Adjust the destination filename per agent as shown
-> in the path matrix.
+> **Note on agent file naming:** Copilot keeps `.agent.md` in `.github/agents/`;
+> Claude, Gemini and OpenCode use `<name>.md` in their `agents/` folder; Codex uses
+> `<name>.toml` in `.codex/agents/`. Use the slug from
+> [references/agent-formats.md](references/agent-formats.md#5-name-mapping) as `<name>`.
 
 ---
 
@@ -465,13 +547,22 @@ AI Skills Management — Complete
     3 skills → .github/skills/ (GitHub Copilot)
     1 agent  → .github/agents/ (GitHub Copilot)
     3 skills → .claude/skills/ (Claude Code)
-    1 agent  → .claude/commands/ (Claude Code)
+    1 agent  → .claude/agents/ (Claude Code, converted copy)
 
   Detected agents: Copilot, Claude Code
   Available in central: 9 skills, 1 agent, 1 prompt
 
+  Notes:
+    · Converted agents do not stay in sync — re-run the install after changing the source
+    · Codex only runs custom agents when you ask for them explicitly
+    · Restart the agent tool if it was open, so it picks up the new agents folder
+
   To remove links later, use: "remove AI skills from this project"
 ```
+
+Include in **Notes** only the lines that apply (e.g. the Codex line only if Codex was a
+target), plus any warning raised during installation (hardlink used, tools dropped,
+duplicate skill folders).
 
 ---
 
@@ -480,15 +571,19 @@ AI Skills Management — Complete
 When the user asks to remove or unlink skills or agents:
 
 1. **Scan project** for existing links:
-   - Skills: `.github/skills/`, `.claude/skills/`, `.codex/skills/`, `.gemini/skills/`, `.opencode/skills/`
-   - Agents: `.github/agents/`, `.claude/commands/`, `.opencode/agents/`
-2. **Identify type**: junction, symlink, or copy (use `fsutil reparsepoint query` on Windows, `readlink` on Unix)
+   - Skills: `.github/skills/`, `.claude/skills/`, `.agents/skills/`, `.gemini/skills/`, `.opencode/skills/`
+   - Agents: `.github/agents/`, `.claude/agents/`, `.codex/agents/`, `.gemini/agents/`, `.opencode/agents/`
+   - Prompts: `.github/prompts/`, `.claude/commands/`, `.gemini/commands/`, `.opencode/commands/`
+   - Legacy: agents installed by older versions of this skill in `.claude/commands/`
+     (frontmatter with Copilot `tools`/`model`) — offer to move them to `.claude/agents/`
+2. **Identify type**: junction, symlink, hardlink, converted copy, or copy (use `fsutil reparsepoint query` / `fsutil hardlink list` on Windows, `readlink` on Unix; a converted copy has the `# Generated by ai-skills-management from …` comment)
 3. **Show what's installed** (skills and agents) and let the user select what to remove
 4. **Remove safely:**
    - Junction (Windows): `cmd /c rmdir "<path>"` — does NOT delete original
    - Symlink (Unix): `rm "<path>"` — does NOT delete original
    - Copy (folder): `rm -rf "<path>"` (Unix) / `rmdir /s /q "<path>"` (Windows) — deletes local copy only
    - Copy (single file, e.g. an agent): `rm "<path>"` (Unix) / `del "<path>"` (Windows) — deletes local copy only
+   - Hardlink (Windows): `del "<path>"` — removes the project entry only; the central file is kept
 
 ### CRITICAL SAFETY RULES
 
@@ -504,9 +599,9 @@ When the user asks to remove or unlink skills or agents:
 
 When the user asks to list or show installed AI skills or agents:
 
-1. Scan all agent skill directories (`.github/skills/`, `.claude/skills/`, etc.) and
-   agent directories (`.github/agents/`, `.claude/commands/`, `.opencode/agents/`)
-2. For each entry, detect if it's a junction, symlink, or copy
+1. Scan all agent skill directories (`.github/skills/`, `.claude/skills/`, `.agents/skills/`, etc.) and
+   agent directories (`.github/agents/`, `.claude/agents/`, `.codex/agents/`, `.gemini/agents/`, `.opencode/agents/`)
+2. For each entry, detect if it's a junction, symlink, hardlink, converted copy (and its source), or copy
 3. Show the source (if linked) or mark as local copy
 4. Group by agent, and within each agent by artifact type (skills, agents)
 
@@ -517,4 +612,5 @@ When the user asks to list or show installed AI skills or agents:
 - This skill uses ONLY folder-based organization. No package managers, registries, or services.
 - All operations are local and offline.
 - The central folder structure is flexible — scanning is recursive and depth-independent.
-- Adding support for a new agent only requires updating the path tables.
+- Adding support for a new agent requires updating the path tables and, for agents, the
+  format and tool mapping in [references/agent-formats.md](references/agent-formats.md).

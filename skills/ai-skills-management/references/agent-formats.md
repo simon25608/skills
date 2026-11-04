@@ -165,6 +165,7 @@ summary lists what was dropped.
 | Todo list         | `todo`                                                    | `TodoWrite`     | `write_todos`                   | `todowrite`         | —             |
 | Notebook          | `read/getNotebookSummary`, `edit/editNotebook`            | `NotebookEdit`  | —                               | —                   | —             |
 | Terminal context  | `read/terminalSelection`, `read/terminalLastCommand`      | — (drop)        | — (drop)                        | —                   | —             |
+| Search view results | `search/searchResults` (VS Code Search panel)           | — (drop)        | — (drop)                        | —                   | —             |
 | MCP server tools  | `<server>/*`                                              | `mcp__<server>__*` | `mcp_<server>_*`             | —                   | —             |
 
 **Reverse direction** (Claude → Copilot): use the Copilot tool sets (`read`, `search`,
